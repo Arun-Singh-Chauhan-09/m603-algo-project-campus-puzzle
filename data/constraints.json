@@ -1,8 +1,14 @@
 {
+  "_meta": {
+    "description": "Campus scheduling constraints - All data in one file",
+    "time_model": "College operates 09:00-17:00. 9 blocks per day.",
+    "last_updated": "2026-06-22"
+  },
+  
   "freelancers_availability": [
     {
       "freelancer": "Alexander",
-      "availability": "Mondays,Tuesdays from 13PM"
+      "availability": "Mondays, Tuesdays from 13PM"
     },
     {
       "freelancer": "Yasmin",
@@ -197,6 +203,7 @@
       "availability": "WEdnsdays from 1pm"
     }
   ],
+  
   "internal_faculty": [
     {
       "name": "Ahmad",
@@ -279,51 +286,23 @@
       "notes": null
     }
   ],
+  
   "rooms_berlin": {
     "campus": "Berlin Donnauer",
     "rooms": [
-      {
-        "room": "D003",
-        "capacity": 46
-      },
-      {
-        "room": "D004",
-        "capacity": 77
-      },
-      {
-        "room": "D005",
-        "capacity": 34
-      },
-      {
-        "room": "D104",
-        "capacity": 36
-      },
-      {
-        "room": "D105 (PC Labor)",
-        "capacity": 31
-      },
-      {
-        "room": "D207",
-        "capacity": 22
-      },
-      {
-        "room": "D208",
-        "capacity": 41
-      },
-      {
-        "room": "D303",
-        "capacity": 37
-      },
-      {
-        "room": "D304",
-        "capacity": 53
-      },
-      {
-        "room": "D305",
-        "capacity": 42
-      }
+      {"room": "D003", "capacity": 46},
+      {"room": "D004", "capacity": 77},
+      {"room": "D005", "capacity": 34},
+      {"room": "D104", "capacity": 36},
+      {"room": "D105 (PC Labor)", "capacity": 31},
+      {"room": "D207", "capacity": 22},
+      {"room": "D208", "capacity": 41},
+      {"room": "D303", "capacity": 37},
+      {"room": "D304", "capacity": 53},
+      {"room": "D305", "capacity": 42}
     ]
   },
+  
   "rooms_potsdam": {
     "campus": "Potsdam Campus",
     "rooms": [
@@ -448,5 +427,93 @@
         }
       }
     ]
+  },
+  
+  "classes": [
+    {
+      "class_id": "M501",
+      "students": 30,
+      "professor": "Farid",
+      "program": "Master",
+      "duration": 3
+    },
+    {
+      "class_id": "M502",
+      "students": 25,
+      "professor": "Karim",
+      "program": "Master",
+      "duration": 3
+    },
+    {
+      "class_id": "M503",
+      "students": 20,
+      "professor": "Thomas",
+      "program": "Master",
+      "duration": 3
+    },
+    {
+      "class_id": "M504",
+      "students": 22,
+      "professor": "Matthias",
+      "program": "Master",
+      "duration": 4
+    },
+    {
+      "class_id": "M505",
+      "students": 18,
+      "professor": "Reza",
+      "program": "Master",
+      "duration": 3
+    },
+    {
+      "class_id": "B124",
+      "students": 35,
+      "professor": "Bilal",
+      "program": "Bachelor",
+      "duration": 3
+    },
+    {
+      "class_id": "B125",
+      "students": 30,
+      "professor": "Omar",
+      "program": "Bachelor",
+      "duration": 3
+    },
+    {
+      "class_id": "B126",
+      "students": 28,
+      "professor": "Hamid",
+      "program": "Bachelor",
+      "duration": 3
+    },
+    {
+      "class_id": "B127",
+      "students": 40,
+      "professor": "Ahmad",
+      "program": "Bachelor",
+      "duration": 3
+    },
+    {
+      "class_id": "B128",
+      "students": 32,
+      "professor": "Mazhar",
+      "program": "Bachelor",
+      "duration": 4
+    },
+    {
+      "class_id": "M212",
+      "students": 28,
+      "professor": "Alexander",
+      "program": "Master",
+      "duration": 3
+    }
+  ],
+  
+  "student_groups": {
+    "Master_Group_1": ["M501", "M502", "M503"],
+    "Master_Group_2": ["M212", "M504", "M505"],
+    "Bachelor_Group_1": ["B124", "B125", "B126"],
+    "Bachelor_Group_2": ["B127", "B128"],
+    "Shared_Group": ["M501", "B124"]
   }
 }

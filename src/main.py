@@ -6,6 +6,8 @@ This runs the entire scheduling pipeline:
 2. Graph coloring - assign time slots
 3. Dynamic Programming - optimize room allocation
 4. Backtracking - best effort to recover leftovers
+
+ALL data is read from data/constraints.json - no hardcoded classes or groups!
 """
 
 import json
@@ -25,7 +27,6 @@ from backtracker import resolve_with_backtracking
 
 def load_data():
     """Load the constraints file from the data directory."""
-    # Get the directory where main.py is located
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Try multiple possible locations
@@ -209,12 +210,13 @@ def parse_availability_text(text):
 def convert_json_to_standard_format(json_data):
     """
     Convert the JSON format to the format expected by the scheduler.
+    ALL data comes from JSON now - nothing hardcoded!
     """
     # Convert freelancers and internal faculty to professors
     professors = []
     
     # Add freelancers (external)
-    for freelancer in json_data["freelancers_availability"]:
+    for freelancer in json_data.get("freelancers_availability", []):
         name = freelancer["freelancer"]
         availability_text = freelancer["availability"]
         
@@ -228,9 +230,9 @@ def convert_json_to_standard_format(json_data):
         })
     
     # Add internal faculty
-    for faculty in json_data["internal_faculty"]:
+    for faculty in json_data.get("internal_faculty", []):
         name = faculty["name"]
-        notes = faculty["notes"] or ""
+        notes = faculty.get("notes") or ""
         
         avail = parse_availability_text(notes) if notes else []
         
@@ -247,7 +249,7 @@ def convert_json_to_standard_format(json_data):
     
     # Convert Berlin rooms
     rooms = []
-    for room in json_data["rooms_berlin"]["rooms"]:
+    for room in json_data.get("rooms_berlin", {}).get("rooms", []):
         rooms.append({
             "room_id": f"BER-{room['room']}",
             "capacity": room["capacity"],
@@ -256,7 +258,7 @@ def convert_json_to_standard_format(json_data):
         })
     
     # Convert Potsdam rooms
-    for room in json_data["rooms_potsdam"]["rooms"]:
+    for room in json_data.get("rooms_potsdam", {}).get("rooms", []):
         ue_blocked = {}
         allocation = room.get("allocation", {})
         
@@ -283,27 +285,47 @@ def convert_json_to_standard_format(json_data):
             "ue_blocked": ue_blocked
         })
     
-    # Create classes from the data
-    # Note: The JSON doesn't have a classes section, so we define them based on common patterns
-    classes = [
-        {"class_id": "M501", "students": 30, "professor": "Farid", "program": "Master", "duration": 3},
-        {"class_id": "M502", "students": 25, "professor": "Karim", "program": "Master", "duration": 3},
-        {"class_id": "M503", "students": 20, "professor": "Thomas", "program": "Master", "duration": 3},
-        {"class_id": "B124", "students": 35, "professor": "Bilal", "program": "Bachelor", "duration": 3},
-        {"class_id": "B125", "students": 30, "professor": "Omar", "program": "Bachelor", "duration": 3},
-        {"class_id": "B126", "students": 28, "professor": "Hamid", "program": "Bachelor", "duration": 3},
-        {"class_id": "M504", "students": 22, "professor": "Matthias", "program": "Master", "duration": 4},
-        {"class_id": "M505", "students": 18, "professor": "Reza", "program": "Master", "duration": 3},
-        {"class_id": "B127", "students": 40, "professor": "Ahmad", "program": "Bachelor", "duration": 3},
-        {"class_id": "B128", "students": 32, "professor": "Mazhar", "program": "Bachelor", "duration": 4},
-    ]
+    # ============================================================
+    # READ CLASSES FROM JSON (NO HARDCODING!)
+    # ============================================================
+    classes = json_data.get("classes", [])
     
-    # Student groups
-    student_groups = {
-        "Master_Group_1": ["M501", "M502", "M503"],
-        "Bachelor_Group_1": ["B124", "B125", "B126"],
-        "Shared_Group": ["M501", "B124"]
-    }
+    # If no classes in JSON, show error and exit
+    if not classes:
+        print("❌ ERROR: No 'classes' found in constraints.json!")
+        print("   Please add a 'classes' array to your constraints.json file.")
+        print("   Example:")
+        print('   "classes": [')
+        print('     {')
+        print('       "class_id": "M501",')
+        print('       "students": 30,')
+        print('       "professor": "Farid",')
+        print('       "program": "Master",')
+        print('       "duration": 3')
+        print('     }')
+        print('   ]')
+        exit(1)
+    
+    # ============================================================
+    # READ STUDENT GROUPS FROM JSON (NO HARDCODING!)
+    # ============================================================
+    student_groups = json_data.get("student_groups", {})
+    
+    if not student_groups:
+        print("⚠️  WARNING: No 'student_groups' found in constraints.json!")
+        print("   Using default empty groups. Please add student groups to the JSON file.")
+        print("   Example:")
+        print('   "student_groups": {')
+        print('     "Master_Group_1": ["M501", "M502"],')
+        print('     "Bachelor_Group_1": ["B124", "B125"]')
+        print('   }')
+        # Create default groups based on class prefixes
+        master_classes = [c["class_id"] for c in classes if c.get("program") == "Master"]
+        bachelor_classes = [c["class_id"] for c in classes if c.get("program") == "Bachelor"]
+        if master_classes:
+            student_groups["Default_Master_Group"] = master_classes
+        if bachelor_classes:
+            student_groups["Default_Bachelor_Group"] = bachelor_classes
     
     return {
         "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
