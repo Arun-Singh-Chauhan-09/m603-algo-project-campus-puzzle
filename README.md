@@ -26,8 +26,8 @@ campus_scheduler/
 ## How to Run
 
 ```bash
-git clone https://github.com/<your-username>/campus-scheduler.git
-cd campus-scheduler
+git clone git@github.com:Arun-Singh-Chauhan-09/m603-algo-project-campus-puzzle.git
+cd m603-algo-project-campus-puzzle
 python src/main.py
 ```
 
