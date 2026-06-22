@@ -1,128 +1,136 @@
 # The Campus Puzzle — University Timetable Scheduler
+**M603 Advanced Algorithms | Gisma University of Applied Sciences**
 
-A best-effort semester scheduler that assigns classes to time slots and rooms
-across two campuses (Berlin / Potsdam) while respecting professor availability,
-room capacity, blocked (UE) rooms, variable class durations, and shared-student
-conflicts. When the problem is over-constrained, the system produces a partial
-schedule and a **Conflict Report** identifying the classes that need manual
-intervention.
+A four-stage scheduling pipeline for a real two-campus university (Berlin + Potsdam). It tries hard to fit every class into a valid slot and room — and when it can't, it tells you exactly why.
 
-## Time model
+---
 
-The week is a grid of `(day, block)`. Days are Mon–Sat; blocks are 1-hour slots
-from 08:00 to 19:00 (12 blocks). A class of duration *D* hours occupies *D*
-consecutive blocks in one room on one day. Variable durations (3/4/5/6 h) are a
-first-class part of the model.
-
-## Inputs (`/data/constraints.json`)
-
-- **rooms** — Berlin (Donnauer) and Potsdam rooms with capacity. Potsdam rooms
-  carry a `ue_blocked` map of days that are UE-blocked. Room data is taken
-  directly from `Tentative_Schedule_Data.xlsx`.
-- **professors** — each with an `availability` list of `{day, start, end}`
-  windows, derived from the freelancer/internal availability notes.
-- **classes** — id, students, professor, program (Bachelor/Master), duration.
-- **student_groups** — which classes each group attends (drives the conflict graph).
-
-> Note: `classes` and `student_groups` are currently realistic **placeholder**
-> data so the pipeline runs end-to-end. They are to be replaced with the official
-> module list and group mapping when provided. Room and availability data are real.
-
-## The four stages
-
-### Stage 1 — Greedy baseline (`greedy_solver.py`)
-We sort classes hardest-first by **number of students**, because larger classes
-are the hardest to fit, so placing them first reduces the chance they get
-stranded. Each class is dropped into the first `(day, start, room)` that satisfies
-every hard constraint and clashes with nothing already placed.
-*Complexity:* O(C · D · B · R) per pass — linear in classes × days × blocks ×
-rooms — which scales comfortably to a few thousand classes.
-
-### Stage 2 — Graph coloring (`graph_engine.py`)
-We build a **conflict graph**: a node per class, an edge whenever two classes
-share a professor **or** a student group. We then colour the graph with
-**Welsh–Powell** (order nodes by descending degree, assign each the first
-non-conflicting time slot), where a "colour" is a concrete `(day, start)` placement
-checked for **span overlap** against already-coloured neighbours. Professor
-availability restricts the legal slots.
-*Why:* Welsh–Powell runs in O(V² ) on the conflict graph and tends to use few
-colours on sparse graphs, which is what timetable conflict graphs usually are.
-*Greedy vs. coloring:* the greedy baseline can place a class into a slot that
-later forces a downstream conflict; coloring reasons about all pairwise conflicts
-up front, so it prevents same-time clashes between connected classes by construction.
-
-### Stage 3 — Dynamic Programming room allocation (`optimizer.py`)
-With time slots fixed, classes whose spans overlap on the same day compete for
-rooms. Within each overlapping group we minimise **total wasted capacity** with a
-DP over a bitmask of used rooms.
-
-- **State:** `dp(i, mask)` = minimum extra waste to place classes `i..k-1` given
-  that the rooms in `mask` are already used.
-- **Recurrence:**
-  `dp(i, mask) = min over feasible free room j of [ waste(c_i, r_j) + dp(i+1, mask | 1<<j) ]`,
-  with the option `dp(i, mask) = PENALTY + dp(i+1, mask)` when no room fits
-  (the class is dropped, at a large penalty). Base case `dp(k, mask) = 0`.
-- **Why it avoids brute force:** there are up to `k!` class→room orderings, but
-  many share the same `(i, mask)` subproblem. Memoising on `(i, mask)` collapses
-  them into at most `k · 2^m` states, each solved once.
-
-### Stage 4 — Backtracking & best effort (`backtracker.py`)
-Classes that Stage 2 or 3 could not place are fed to a recursive backtracking
-search over `(day, start, room)`. Stage 4 **independently re-checks every hard
-constraint** (professor availability and clash, student-group clash, room campus,
-UE block, capacity, room clash, end-of-day), so its output does not depend on the
-earlier stages being correct.
-
-**Pruning strategy:**
-1. *Constraint pruning* — invalid `(day, start, room)` placements are rejected
-   before expansion, so dead branches are never explored.
-2. *Fail-first ordering* — leftover classes are tried in order of fewest feasible
-   placements, hitting dead ends early and keeping the tree small.
-3. *Tight-room ordering* — rooms are tried smallest-feasible-first, keeping large
-   rooms free for large classes.
-4. *Node budget* — a cap on expansions guarantees termination; if hit, the search
-   returns the minimum-conflict state found so far (best effort).
-
-## The Conflict Report
-
-`main.py` prints lines in the required format, e.g.:
+## Repository Layout
 
 ```
-Scheduled CS101  Mon 12:00 BER-D208  Wasted 1 seats
-Scheduled WEB210 Mon 14:00 BER-D104  Perfect Fit
-Unscheduled NLP630   N/A   N/A
+campus_scheduler/
+├── data/
+│   └── constraints.json    ← rooms, professors, classes, student groups
+├── src/
+│   ├── common.py           ← shared time model & constraint checks
+│   ├── greedy_solver.py    ← Stage 1
+│   ├── graph_engine.py     ← Stage 2
+│   ├── optimizer.py        ← Stage 3
+│   ├── backtracker.py      ← Stage 4
+│   └── main.py             ← runs everything, prints the Conflict Report
+└── requirements.txt        ← none (Python 3.10+ standard library only)
 ```
 
-In the current run, **NLP630** cannot be scheduled: its professor (Kaveh) is only
-available Tue 15:00–18:00 and Wed 14:00–17:00, and both windows collide with its
-MSc_AI groupmates (ML502 on Tue, DS601 on Wed). This is a genuine, unavoidable
-conflict — the kind the brief asks us to flag rather than hide.
+---
 
-## The Manual Fix Log
-
-For the leftover ~1–6%, a human manager uses the report to resolve conflicts that
-software cannot, for example by: asking the affected professor for one extra
-availability window; splitting a large student group; moving a groupmate's class
-to free a slot; or approving a temporarily over-capacity room. The software's job
-is to shrink the manual workload to a tiny, clearly-identified set.
-
-## Running
+## How to Run
 
 ```bash
-cd src
-python3 main.py
+git clone https://github.com/<your-username>/campus-scheduler.git
+cd campus-scheduler
+python src/main.py
 ```
 
-No external libraries are required (Python 3.10+).
+No installs needed. The script finds `data/constraints.json` automatically.
 
-## Repository layout
+---
+
+## The Four Stages
+
+### Stage 1 — Greedy Baseline (`greedy_solver.py`)
+
+Sort classes largest-first (by enrolment), then drop each one into the first valid `(day, time, room)` slot. Bigger classes go first because they're the hardest to place — if you leave them for last, they often don't fit anywhere. This gives us a working schedule fast, but it's short-sighted: placing a class now might block something else later.
+
+**Complexity:** O(C · D · B · R) — scales easily to thousands of classes.
+
+---
+
+### Stage 2 — Graph Coloring (`graph_engine.py`)
+
+Build a conflict graph: one node per class, one edge between any two classes that share a professor or a student group. Then colour it with **Welsh–Powell** (most-connected nodes first), where each "colour" is a concrete `(day, time)` slot checked against professor availability.
+
+This is the key upgrade over Stage 1. Graph colouring reasons about *all* conflicts at once, so two connected classes can never end up in the same slot — by construction, not by luck.
+
+**Complexity:** O(V² + E) on the conflict graph.
+
+| | Stage 1 Greedy | Stage 2 Graph Coloring |
+|---|---|---|
+| Professor clashes | Possible | Zero |
+| Student-group clashes | Possible | Zero |
+
+---
+
+### Stage 3 — Dynamic Programming (`optimizer.py`)
+
+Time slots are now fixed. Within each group of classes running simultaneously, we need to assign rooms while minimising wasted seats. Brute-forcing all room permutations is k! — hopeless for large groups. Instead, we use bitmask DP:
 
 ```
-data/constraints.json   inputs (rooms + availability real; classes/groups placeholder)
-src/common.py           time model + shared constraint checks
-src/greedy_solver.py    Stage 1
-src/graph_engine.py     Stage 2
-src/optimizer.py        Stage 3 (DP)
-src/backtracker.py      Stage 4
-src/main.py             orchestration + Conflict Report
+dp(i, mask) = min wasted seats to place classes i…k given rooms in `mask` are taken
+
+dp(i, mask) = min { waste(class_i, room_j) + dp(i+1, mask | 1<<j) }   for each free room j
+            = PENALTY + dp(i+1, mask)                                   if nothing fits
 ```
+
+Many room assignments share the same `(i, mask)` sub-problem — memoising collapses the search from k! to at most k·2^m states. Much more manageable.
+
+---
+
+### Stage 4 — Backtracking (`backtracker.py`)
+
+Anything still unplaced goes into a recursive backtracking search. Stage 4 re-checks every hard constraint independently (it doesn't trust earlier stages), so the final output is always correct regardless of what happened upstream.
+
+Pruning keeps it fast:
+- Invalid `(day, time, room)` triples are cut *before* recursion, not after
+- Hardest-to-place classes go first (fail-fast)
+- Smallest viable rooms are tried first, saving big rooms for big classes
+- A node budget caps runtime; if hit, the best partial solution so far is returned
+
+---
+
+## Conflict Report
+
+The final output looks like this:
+
+```
+Scheduled   B127   Mon 09:00  BER-D208   Perfect Fit
+Scheduled   M501   Tue 10:00  BER-D210   Wasted 5 seats
+Scheduled   M502   Wed 09:00  BER-D104   Perfect Fit
+Unscheduled NLP630 N/A        N/A
+
+Summary: scheduled 9/10, unscheduled 1 (10.0% need manual intervention)
+```
+
+**Why is NLP630 unscheduled?** Its professor (Kaveh) is only free Tue 15:00–18:00 and Wed 14:00–17:00. Both windows are already taken by the MSc_AI group's other required classes. There's no valid slot — the system surfaces it clearly rather than hiding it.
+
+---
+
+## Manual Fix Log
+
+For the classes the algorithm can't place, a university manager can typically resolve them by:
+
+- Asking the professor for one extra availability window
+- Splitting a student group so fewer classes conflict
+- Swapping two rooms to free up a suitable slot
+- Requesting a UE-block exception for a Potsdam room
+
+The system's job is to shrink this manual workload to a small, clearly-labelled list.
+
+---
+
+## Complexity Summary
+
+| Stage | Algorithm | Time Complexity |
+|---|---|---|
+| 1 | Greedy (largest-first) | O(C · D · B · R) |
+| 2 | Welsh–Powell Graph Coloring | O(V² + E) |
+| 3 | Bitmask DP | O(k · 2^m) per overlapping group |
+| 4 | Backtracking with pruning | O(b^d), pruned heavily |
+
+---
+
+## References
+
+- Coffman, E.G., Garey, M.R. and Johnson, D.S. (1984). *Approximation Algorithms for Bin Packing.* PWS Publishing.
+- Werra, D. de (1985). An Introduction to Timetabling. *European Journal of Operational Research*, 19(2), pp. 151–162.
+- Welsh, D.J.A. and Powell, M.B. (1967). An Upper Bound for the Chromatic Number of a Graph. *The Computer Journal*, 10(1), pp. 85–86.
+- Cormen, T.H. et al. (2022). *Introduction to Algorithms.* 4th edn. MIT Press.
